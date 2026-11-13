@@ -20,3 +20,17 @@ await sharp(mask).resize(512).png().toFile('public/icons/maskable-512.png');
 await sharp(any).resize(180).png().toFile('public/icons/apple-touch-icon.png');
 // splash knight (no bg)
 fs.writeFileSync('src/knight.svg', `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 45 45">${knight.replace('#a8703a','#d9a066').replace('#a8703a','#d9a066')}${W}</svg>`);
+
+// Open Graph / social share image (1200x630)
+const og = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630">
+<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5a3519"/><stop offset="1" stop-color="#241209"/></linearGradient></defs>
+<rect width="1200" height="630" fill="url(#g)"/>
+<g opacity=".18">${Array.from({ length: 8 }, (_, y) => Array.from({ length: 8 }, (_, x) => ((x + y) % 2 ? `<rect x="${700 + x * 63}" y="${60 + y * 63}" width="63" height="63" fill="#e8c99b"/>` : '')).join('')).join('')}</g>
+<g transform="translate(690 95) scale(10.4)">${knight.replace(/#a8703a/g, '#d9a066')}${W}</g>
+<text x="80" y="290" font-family="Segoe UI, Arial, sans-serif" font-weight="700" font-size="120" fill="#e8c99b">WillChess</text>
+<text x="84" y="360" font-family="Segoe UI, Arial, sans-serif" font-size="38" fill="#c68a4d">Melhore suas habilidades</text>
+<text x="84" y="410" font-family="Segoe UI, Arial, sans-serif" font-size="38" fill="#c68a4d">no jogo dos reis</text>
+<rect x="84" y="460" width="360" height="64" rx="32" fill="#c68a4d"/>
+<text x="264" y="504" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-weight="700" font-size="30" fill="#2a160a">Treino de xadrez</text>
+</svg>`;
+await sharp(Buffer.from(og)).png().toFile('public/og-image.png');

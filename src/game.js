@@ -71,6 +71,19 @@ export function createGame(root, { userColor, level, engine, onEnd, onLeave }) {
     drawable: { enabled: false, visible: true },
   });
 
+  // Chessground caches the board's screen position. The screen slides in with a CSS transform,
+  // so it must be re-measured once the animation ends and whenever the layout changes.
+  const remeasure = () => {
+    if (!destroyed) cg.redrawAll();
+  };
+  const screenEl = root.closest('.screen') || root;
+  screenEl.addEventListener('animationend', remeasure);
+  const t1 = setTimeout(remeasure, 600);
+  const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(remeasure) : null;
+  ro?.observe($('.board-box'));
+  window.addEventListener('resize', remeasure);
+  window.addEventListener('orientationchange', remeasure);
+
   function setStatus(key, cls = '') {
     statusEl.className = 'status ' + cls;
     statusEl.textContent = t(key);
@@ -377,6 +390,10 @@ export function createGame(root, { userColor, level, engine, onEnd, onLeave }) {
   return {
     destroy() {
       destroyed = true;
+      clearTimeout(t1);
+      ro?.disconnect();
+      window.removeEventListener('resize', remeasure);
+      window.removeEventListener('orientationchange', remeasure);
       try {
         engine.stop();
         cg.destroy();

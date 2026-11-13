@@ -223,3 +223,6 @@ cg-board square.selected { background-color: rgba(255, 214, 90, .55); }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
 }
+
+.toast { position: fixed; left: 50%; bottom: 28px; transform: translate(-50%, 20px); opacity: 0; background: var(--wood-200); color: #2a160a; font-weight: 700; padding: 10px 18px; border-radius: 999px; box-shadow: 0 8px 24px #000a; z-index: 100; transition: all .25s; }
+.toast.in { opacity: 1; transform: translate(-50%, 0); }

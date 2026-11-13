@@ -7,7 +7,7 @@ import { getSetting, setSetting, getStats, getGames } from './db.js';
 import { play, setSoundOn, isSoundOn, unlockAudio } from './sound.js';
 import { Engine } from './engine.js';
 import { createGame, LEVELS } from './game.js';
-import { h, esc, modal, KNIGHT_SVG } from './ui.js';
+import { h, esc, modal, KNIGHT_SVG, shareApp } from './ui.js';
 
 // Auto-update: the new service worker activates immediately and the page reloads once.
 // Updates are checked on launch, every hour and whenever the app returns to the foreground.
@@ -90,6 +90,9 @@ function renderTopbar() {
     <div class="top-actions">
       ${deferredInstall && !isStandalone() ? `<button class="icon-btn" data-act="install" title="${esc(t('install'))}" aria-label="${esc(t('install'))}">⤓</button>` : ''}
       ${inGame ? '' : `<button class="icon-btn txt" data-act="lang" title="${esc(t('language'))}" aria-label="${esc(t('language'))}">${getLang().toUpperCase()}</button>`}
+      <button class="icon-btn" data-act="share" title="${esc(t('share'))}" aria-label="${esc(t('share'))}">
+        <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 10.5l6.8-4M8.6 13.5l6.8 4"/></svg>
+      </button>
       <button class="icon-btn" data-act="sound" title="${esc(t('sound'))}" aria-label="${esc(t('sound'))}">${isSoundOn() ? '🔊' : '🔇'}</button>
       <button class="icon-btn ${current === 'stats' ? 'active' : ''}" data-act="stats" title="${esc(t('statsTitle'))}" aria-label="${esc(t('statsTitle'))}">
         <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><rect x="3" y="12" width="4" height="9" rx="1"/><rect x="10" y="3" width="4" height="18" rx="1"/><rect x="17" y="8" width="4" height="13" rx="1"/></svg>
@@ -104,6 +107,7 @@ function renderTopbar() {
       unlockAudio();
       const a = b.dataset.act;
       if (a === 'install') doInstall();
+      else if (a === 'share') shareApp(t('shareText'));
       else if (a === 'sound') {
         setSoundOn(!isSoundOn());
         setSetting('sound', isSoundOn());
@@ -275,10 +279,12 @@ function endScreen(el, { game }) {
         <div class="stat"><b>${acc}%</b><span>${esc(t('accuracy'))}</span></div></div>
       </div>
       <button class="btn primary big-btn" data-new>${esc(t('newTraining'))}</button>
+      <button class="btn ghost" data-share>↗ ${esc(t('share'))}</button>
       <button class="btn ghost" data-stats>${esc(t('statsTitle'))}</button>
     </div>`;
   el.querySelector('[data-new]').onclick = () => go('levels');
   el.querySelector('[data-stats]').onclick = () => go('stats');
+  el.querySelector('[data-share]').onclick = () => shareApp(t('shareResult', { good: game.good, bad: game.bad, acc }));
   setTimeout(() => play('finish'), 250);
   burst(el);
 }
