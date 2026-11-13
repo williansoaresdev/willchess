@@ -7,7 +7,7 @@ import { getSetting, setSetting, getStats, getGames } from './db.js';
 import { play, setSoundOn, isSoundOn, unlockAudio } from './sound.js';
 import { Engine } from './engine.js';
 import { createGame, LEVELS } from './game.js';
-import { h, esc, modal, KNIGHT_SVG, shareApp } from './ui.js';
+import { h, esc, modal, KNIGHT_SVG, shareApp, toast } from './ui.js';
 
 // Auto-update: the new service worker activates immediately and the page reloads once.
 // Updates are checked on launch, every hour and whenever the app returns to the foreground.
@@ -79,6 +79,19 @@ async function doInstall() {
   deferredInstall = null;
   renderTopbar();
   if (current === 'levels') reload();
+}
+
+// ---- force update: drop service workers + caches (IndexedDB stats are kept), then reload ----
+async function forceUpdate() {
+  toast(t('updating'));
+  try {
+    const regs = (await navigator.serviceWorker?.getRegistrations()) || [];
+    await Promise.all(regs.map((r) => r.unregister()));
+    if (window.caches) await Promise.all((await caches.keys()).map((k) => caches.delete(k)));
+  } catch (e) {
+    console.error(e);
+  }
+  location.replace(`${location.pathname}?u=${Date.now()}`);
 }
 
 // ---- topbar ----
@@ -212,6 +225,7 @@ function levels(el) {
           .map((o) => `<button class="opt ${sel.color === o.v ? 'on' : ''}" data-v="${o.v}"><span class="big">${o.ico}</span>${esc(o.label)}</button>`)
           .join('')}</div></div>
       <button class="btn primary big-btn" data-start>${esc(t('start'))}</button>
+      <div class="version"><span>${esc(t('version', { v: __APP_VERSION__ }))}</span> · <button class="link" data-update>${esc(t('forceUpdate'))}</button></div>
     </div>`;
   el.querySelectorAll('[data-group]').forEach((g) => {
     g.querySelectorAll('.opt').forEach((b) => {
@@ -228,6 +242,7 @@ function levels(el) {
   const dis = el.querySelector('[data-dismiss]');
   if (dis) dis.onclick = () => el.querySelector('.install-card').remove();
   el.querySelector('[data-start]').onclick = startTraining;
+  el.querySelector('[data-update]').onclick = forceUpdate;
   getEngine();
 }
 
