@@ -21,6 +21,12 @@ function ac() {
   return ctx;
 }
 
+/** Shared AudioContext (used by the music engine). */
+export function getAudio() {
+  const c = ac();
+  return c ? { ctx: c } : null;
+}
+
 // Call from a user gesture so browsers allow audio.
 export function unlockAudio() {
   ac();
@@ -91,6 +97,9 @@ const sounds = {
   alert(c) {
     tone(c, { f: 440, dur: 0.18, type: 'triangle', gain: 0.25 });
     tone(c, { f: 330, dur: 0.28, type: 'triangle', gain: 0.25, at: 0.16 });
+  },
+  tick(c) {
+    knock(c, { freq: 2400, gain: 0.5, dur: 0.03 });
   },
   good(c) {
     tone(c, { f: 660, f2: 880, dur: 0.14, type: 'sine', gain: 0.15 });

@@ -135,7 +135,7 @@ h1, h2, h3, h4 { margin: 0; }
 .game-body { flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; gap: 10px; overflow-y: auto; padding-bottom: 14px; }
 .board-box {
   position: relative; flex: none;
-  width: min(100vw - 16px, max(260px, 100dvh - var(--topbar-h) - 62px - 190px));
+  width: min(100vw - 16px, max(260px, 100dvh - var(--topbar-h) - 78px - 220px));
   aspect-ratio: 1; padding: 8px; border-radius: 10px;
   background: linear-gradient(135deg, var(--wood-500), var(--wood-600));
   box-shadow: 0 0 0 2px var(--wood-800), 0 14px 34px #000a, inset 0 0 0 1px #ffffff22;
@@ -181,7 +181,7 @@ cg-board square.selected { background-color: rgba(255, 214, 90, .55); }
 
 @media (orientation: landscape) and (min-width: 760px) {
   .game-body { flex-direction: row; align-items: flex-start; justify-content: center; gap: 22px; padding: 6px 16px 16px; }
-  .board-box { width: min(100vw - 420px, 100dvh - var(--topbar-h) - 62px); }
+  .board-box { width: min(100vw - 420px, 100dvh - var(--topbar-h) - 78px); }
   .panel { width: 360px; }
 }
 
@@ -229,3 +229,24 @@ cg-board square.selected { background-color: rgba(255, 214, 90, .55); }
 
 .version { text-align: center; font-size: .8rem; opacity: .7; }
 .link { background: none; border: 0; padding: 4px; color: var(--wood-200); text-decoration: underline; font-size: inherit; }
+
+/* ---------- game clock ---------- */
+.chips.four { grid-template-columns: repeat(4, 1fr); }
+.opt.compact { padding: 12px 4px; }
+.clock-wrap { display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 112px; }
+.clock {
+  font-variant-numeric: tabular-nums; font-size: 1.5rem; font-weight: 800; letter-spacing: 1px; padding: 2px 14px;
+  border-radius: 12px; background: #00000045; border: 1px solid #ffffff14; color: var(--wood-200); transition: color .6s, background .6s, border-color .6s;
+}
+.clock.mid { color: #ffd277; }
+.clock.low { color: #ff9a6b; border-color: #ff9a6b66; background: #3a120a99; }
+.clock.crit { color: #ff5a4a; animation: crit 1s ease-in-out infinite; }
+@keyframes crit { 50% { transform: scale(1.08); background: #5a1208cc; } }
+.clock-bar { width: 100%; height: 5px; border-radius: 99px; background: #ffffff1c; overflow: hidden; }
+.clock-bar i { display: block; height: 100%; background: var(--good); transition: width .25s linear, background .6s; }
+.clock-bar i.mid { background: #ffd277; }
+.clock-bar i.low { background: #ff6b4a; }
+.top-right { display: flex; align-items: center; gap: 6px; }
+.icon-btn.mini { min-width: 34px; height: 34px; border-radius: 10px; font-size: 1.1rem; }
+.icon-btn.off { opacity: .45; text-decoration: line-through; }
+.game-info { text-align: center; font-size: .85rem; color: var(--wood-300); }

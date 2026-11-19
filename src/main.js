@@ -7,6 +7,7 @@ import { getSetting, setSetting, getStats, getGames } from './db.js';
 import { play, setSoundOn, isSoundOn, unlockAudio } from './sound.js';
 import { Engine } from './engine.js';
 import { createGame, LEVELS } from './game.js';
+import { musicSync, musicSetEnabled } from './music.js';
 import { h, esc, modal, KNIGHT_SVG, shareApp, toast } from './ui.js';
 
 // Auto-update: the new service worker activates immediately and the page reloads once.
@@ -124,6 +125,7 @@ function renderTopbar() {
       else if (a === 'sound') {
         setSoundOn(!isSoundOn());
         setSetting('sound', isSoundOn());
+        musicSync();
         renderTopbar();
       } else if (a === 'lang') {
         const next = LANGS[(LANGS.indexOf(getLang()) + 1) % LANGS.length];
@@ -196,7 +198,9 @@ function splash(el) {
   }, 2000);
 }
 
-const sel = { level: 'random', color: 'random' };
+const TIMES = [1, 3, 5, 10, 20, 30, 60]; // minutes of total thinking time
+const sel = { level: 'random', color: 'random', time: 5 };
+const timeLabel = (m) => (m >= 60 ? t('hourShort', { n: m / 60 }) : t('minShort', { n: m }));
 
 function levels(el) {
   const levelOpts = [{ v: 'random', label: t('random') }, ...LEVELS.map((l) => ({ v: l.id, label: t('levels')[l.id], sub: l.elo ? `~${l.elo}` : 'MAX' }))];
@@ -224,6 +228,8 @@ function levels(el) {
         <div class="chips three" data-group="color">${colorOpts
           .map((o) => `<button class="opt ${sel.color === o.v ? 'on' : ''}" data-v="${o.v}"><span class="big">${o.ico}</span>${esc(o.label)}</button>`)
           .join('')}</div></div>
+      <div class="field"><label>⏱ ${esc(t('timeLabel'))}</label>
+        <div class="chips four" data-group="time">${TIMES.map((m) => `<button class="opt compact ${sel.time === m ? 'on' : ''}" data-v="${m}">${esc(timeLabel(m))}</button>`).join('')}</div></div>
       <button class="btn primary big-btn" data-start>${esc(t('start'))}</button>
       <div class="version"><span>${esc(t('version', { v: __APP_VERSION__ }))}</span> · <button class="link" data-update>${esc(t('forceUpdate'))}</button></div>
     </div>`;
@@ -231,7 +237,9 @@ function levels(el) {
     g.querySelectorAll('.opt').forEach((b) => {
       b.onclick = () => {
         const v = b.dataset.v;
-        sel[g.dataset.group] = g.dataset.group === 'level' && v !== 'random' ? Number(v) : v;
+        const grp = g.dataset.group;
+        sel[grp] = (grp === 'level' && v !== 'random') || grp === 'time' ? Number(v) : v;
+        if (grp === 'time') setSetting('timeMin', sel.time);
         g.querySelectorAll('.opt').forEach((x) => x.classList.toggle('on', x === b));
         play('move');
       };
@@ -259,10 +267,10 @@ async function startTraining() {
   }
   const level = sel.level === 'random' ? LEVELS[Math.floor(Math.random() * LEVELS.length)] : LEVELS[sel.level];
   const color = sel.color === 'random' ? (Math.random() < 0.5 ? 'white' : 'black') : sel.color;
-  go('game', { level, color });
+  go('game', { level, color, timeMs: sel.time * 60000 });
 }
 
-function gameScreen(el, { level, color }) {
+function gameScreen(el, { level, color, timeMs }) {
   const eng = getEngine();
   if (!eng) {
     el.innerHTML = `<div class="page"><p>${esc(t('engineError'))}</p></div>`;
@@ -271,6 +279,7 @@ function gameScreen(el, { level, color }) {
   activeGame = createGame(el, {
     userColor: color,
     level,
+    timeMs,
     engine: eng,
     onEnd: (game) => go('end', { game }),
     onLeave: () => go('levels'),
@@ -281,7 +290,7 @@ function endScreen(el, { game }) {
   const total = game.good + game.bad;
   const acc = total ? Math.round((game.good / total) * 100) : 100;
   const msg =
-    game.result === 'win' ? t('resWin') : game.result === 'loss' ? t('resLoss') : { stalemate: t('drawStalemate'), repetition: t('drawRep'), material: t('drawMat'), fifty: t('drawFifty') }[game.reason] || t('resDraw');
+    game.reason === 'time' ? t('resTime') : game.result === 'win' ? t('resWin') : game.result === 'loss' ? t('resLoss') : { stalemate: t('drawStalemate'), repetition: t('drawRep'), material: t('drawMat'), fifty: t('drawFifty') }[game.reason] || t('resDraw');
   el.innerHTML = `
     <div class="page end">
       <div class="end-knight">${KNIGHT_SVG}</div>
@@ -366,6 +375,8 @@ async function stats(el) {
   const lang = await getSetting('lang', null);
   setLang(lang || detectLang());
   setSoundOn(await getSetting('sound', true));
+  musicSetEnabled(await getSetting('music', true));
+  sel.time = await getSetting('timeMin', 5);
   mount('splash', {}, '');
 })();
 

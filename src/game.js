@@ -3,7 +3,8 @@ import { Chessground } from 'chessground';
 import { t } from './i18n.js';
 import { Engine, scoreToCp, clampCp } from './engine.js';
 import { play } from './sound.js';
-import { addMove, addGame } from './db.js';
+import { addMove, addGame, setSetting } from './db.js';
+import { musicStart, musicStop, musicSetLevel, musicSetProgress, musicSetEnabled, isMusicEnabled } from './music.js';
 import { h, esc, sleep, modal, confirmBox } from './ui.js';
 
 export const LEVELS = [
@@ -28,7 +29,7 @@ function fmtScore(s, sign = true) {
   return (sign && v > 0 ? '+' : '') + v.toFixed(2);
 }
 
-export function createGame(root, { userColor, level, engine, onEnd, onLeave }) {
+export function createGame(root, { userColor, level, engine, timeMs, onEnd, onLeave }) {
   const chess = new Chess();
   const cache = new Map();
   let phase = 'busy';
@@ -43,12 +44,19 @@ export function createGame(root, { userColor, level, engine, onEnd, onLeave }) {
     <div class="game">
       <div class="game-top">
         <button class="btn small ghost" data-leave>← ${esc(t('leave'))}</button>
-        <div class="game-info">${esc(t('youPlay', { c: t(userColor) }))} · ${esc(t('levels')[level.id])}</div>
-        <div class="counters"><span class="chip good">✓ <b data-good>0</b></span><span class="chip bad">✗ <b data-bad>0</b></span></div>
+        <div class="clock-wrap" aria-live="off">
+          <div class="clock" data-clock>--:--</div>
+          <div class="clock-bar"><i data-clockbar></i></div>
+        </div>
+        <div class="top-right">
+          <div class="counters"><span class="chip good">✓ <b data-good>0</b></span><span class="chip bad">✗ <b data-bad>0</b></span></div>
+          <button class="icon-btn mini" data-music title="${esc(t('music'))}" aria-label="${esc(t('music'))}"></button>
+        </div>
       </div>
       <div class="game-body">
         <div class="board-box"><div class="cg-host"></div></div>
         <aside class="panel">
+          <div class="game-info">${esc(t('youPlay', { c: t(userColor) }))} · ${esc(t('levels')[level.id])}</div>
           <div class="status" data-status></div>
           <div class="alert-box" data-alert hidden></div>
         </aside>
@@ -84,6 +92,71 @@ export function createGame(root, { userColor, level, engine, onEnd, onLeave }) {
   window.addEventListener('resize', remeasure);
   window.addEventListener('orientationchange', remeasure);
 
+  // ---- game clock (the user's total thinking time) + suspense music ----
+  // The clock only runs while it is the user's turn to move (not during analysis, alerts or replays).
+  let remaining = timeMs;
+  let lastTick = performance.now();
+  let lastSecond = Math.ceil(remaining / 1000);
+  const clockEl = $('[data-clock]');
+  const barEl = $('[data-clockbar]');
+  const musicBtn = $('[data-music]');
+  const renderMusicBtn = () => {
+    musicBtn.textContent = isMusicEnabled() ? '♪' : '♪̸';
+    musicBtn.classList.toggle('off', !isMusicEnabled());
+  };
+  renderMusicBtn();
+  musicBtn.onclick = () => {
+    musicSetEnabled(!isMusicEnabled());
+    setSetting('music', isMusicEnabled());
+    renderMusicBtn();
+  };
+  function fmtClock(ms) {
+    const s = Math.max(0, Math.ceil(ms / 1000));
+    const hh = Math.floor(s / 3600);
+    const mm = String(Math.floor((s % 3600) / 60)).padStart(2, '0');
+    const ss = String(s % 60).padStart(2, '0');
+    return hh ? `${hh}:${mm}:${ss}` : `${mm}:${ss}`;
+  }
+  function renderClock() {
+    const elapsed = 1 - remaining / timeMs;
+    clockEl.textContent = fmtClock(remaining);
+    clockEl.classList.toggle('mid', elapsed >= 1 / 3 && elapsed < 2 / 3);
+    clockEl.classList.toggle('low', elapsed >= 2 / 3);
+    clockEl.classList.toggle('crit', remaining <= 10000 && remaining > 0);
+    barEl.style.width = Math.max(0, (remaining / timeMs) * 100) + '%';
+    barEl.className = elapsed >= 2 / 3 ? 'low' : elapsed >= 1 / 3 ? 'mid' : '';
+    musicSetLevel(elapsed < 1 / 3 ? 0 : elapsed < 2 / 3 ? 1 : 2);
+    musicSetProgress(elapsed >= 2 / 3 ? (elapsed - 2 / 3) * 3 : 0);
+  }
+  function tickClock() {
+    const now = performance.now();
+    const dt = now - lastTick;
+    lastTick = now;
+    if (destroyed || phase !== 'user' || document.hidden) return;
+    remaining -= Math.min(dt, 1000);
+    const sec = Math.ceil(remaining / 1000);
+    if (sec !== lastSecond) {
+      lastSecond = sec;
+      if (remaining > 0 && remaining <= 10000) play('tick');
+    }
+    if (remaining <= 0) {
+      remaining = 0;
+      renderClock();
+      return timeUp();
+    }
+    renderClock();
+  }
+  function timeUp() {
+    if (phase === 'over') return;
+    document.querySelectorAll('.modal-back').forEach((m) => m.remove());
+    cg.set({ movable: { color: undefined, dests: new Map() } });
+    setStatus('timeUp', 'bad');
+    play('alert');
+    finish('time');
+  }
+  renderClock();
+  const clockTimer = setInterval(tickClock, 100);
+
   function setStatus(key, cls = '') {
     statusEl.className = 'status ' + cls;
     statusEl.textContent = t(key);
@@ -117,6 +190,7 @@ export function createGame(root, { userColor, level, engine, onEnd, onLeave }) {
 
   function userTurn() {
     if (destroyed) return;
+    lastTick = performance.now();
     phase = 'user';
     setStatus('yourTurn', 'turn');
     const last = chess.history({ verbose: true }).at(-1);
@@ -351,10 +425,14 @@ export function createGame(root, { userColor, level, engine, onEnd, onLeave }) {
     userTurn();
   }
 
-  async function finish() {
+  async function finish(forced) {
     phase = 'over';
+    musicStop();
     let result, reason;
-    if (chess.isCheckmate()) {
+    if (forced === 'time') {
+      result = 'loss';
+      reason = 'time';
+    } else if (chess.isCheckmate()) {
       const winner = cname(chess.turn()) === userColor ? 'engine' : 'user';
       result = winner === 'user' ? 'win' : 'loss';
       reason = 'mate';
@@ -362,8 +440,9 @@ export function createGame(root, { userColor, level, engine, onEnd, onLeave }) {
       result = 'draw';
       reason = chess.isStalemate() ? 'stalemate' : chess.isInsufficientMaterial() ? 'material' : chess.isThreefoldRepetition() ? 'repetition' : 'fifty';
     }
-    setStatus('congrats', 'turn');
+    if (forced !== 'time') setStatus('congrats', 'turn');
     const game = {
+      timeMin: Math.round(timeMs / 60000),
       date: Date.now(),
       userColor,
       level: level.id,
@@ -384,12 +463,15 @@ export function createGame(root, { userColor, level, engine, onEnd, onLeave }) {
   };
 
   // kick off
+  musicStart();
   if (userColor === 'black') engineMove();
   else userTurn();
 
   return {
     destroy() {
       destroyed = true;
+      clearInterval(clockTimer);
+      musicStop();
       clearTimeout(t1);
       ro?.disconnect();
       window.removeEventListener('resize', remeasure);
