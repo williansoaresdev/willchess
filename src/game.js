@@ -258,8 +258,14 @@ export function createGame(root, { userColor, level, engine, timeMs, onEnd, onLe
       updateCounts();
       addMove(userColor, !bad);
       if (!bad) {
-        play('good');
-        flash(t('goodMove'));
+        if (pre.lines[0].pv[0] === uci) {
+          play('excellent');
+          flash(t('excellentMove'));
+          starBurst(played.to);
+        } else {
+          play('good');
+          flash(t('goodMove'));
+        }
         return engineMove();
       }
       showAlert({ pre, preFen, played, loss, reveal: failCount >= 2 });
@@ -267,6 +273,40 @@ export function createGame(root, { userColor, level, engine, timeMs, onEnd, onLe
       console.error(e);
       engineMove();
     }
+  }
+
+  function starBurst(sq) {
+    const box = el.querySelector('.board-box');
+    const wrap = el.querySelector('.cg-wrap') || box;
+    const b = box.getBoundingClientRect();
+    const r = wrap.getBoundingClientRect();
+    let file = sq.charCodeAt(0) - 97;
+    let rank = +sq[1] - 1;
+    if (userColor === 'black') {
+      file = 7 - file;
+      rank = 7 - rank;
+    }
+    const cx = r.left - b.left + ((file + 0.5) * r.width) / 8;
+    const cy = r.top - b.top + ((7 - rank + 0.5) * r.height) / 8;
+    const layer = h('<div class="stars" aria-hidden="true"></div>');
+    layer.style.left = cx + 'px';
+    layer.style.top = cy + 'px';
+    const cols = ['#ffe066', '#fff3b0', '#ffd23f', '#ffffff', '#ffb347'];
+    for (let i = 0; i < 18; i++) {
+      const s = document.createElement('i');
+      const ang = (i / 18) * Math.PI * 2 + Math.random() * 0.35;
+      const dist = 40 + Math.random() * 70;
+      s.textContent = '★';
+      s.style.setProperty('--dx', Math.cos(ang) * dist + 'px');
+      s.style.setProperty('--dy', Math.sin(ang) * dist + 'px');
+      s.style.setProperty('--rot', Math.round((Math.random() - 0.5) * 540) + 'deg');
+      s.style.fontSize = 10 + Math.random() * 14 + 'px';
+      s.style.color = cols[i % cols.length];
+      s.style.animationDelay = Math.random() * 0.12 + 's';
+      layer.appendChild(s);
+    }
+    box.appendChild(layer);
+    setTimeout(() => layer.remove(), 1400);
   }
 
   function flash(text) {

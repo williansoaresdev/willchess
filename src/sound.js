@@ -104,6 +104,14 @@ const sounds = {
   good(c) {
     tone(c, { f: 660, f2: 880, dur: 0.14, type: 'sine', gain: 0.15 });
   },
+  excellent(c) {
+    // sparkly rising arpeggio + shimmer
+    [880, 1108.7, 1318.5, 1760, 2217.5].forEach((f, i) =>
+      tone(c, { f, dur: 0.35, type: 'sine', gain: 0.16, at: i * 0.055 }),
+    );
+    tone(c, { f: 2637, f2: 3520, dur: 0.5, type: 'triangle', gain: 0.07, at: 0.2 });
+    tone(c, { f: 1760, dur: 0.7, type: 'sine', gain: 0.1, at: 0.28 });
+  },
   finish(c) {
     [523.25, 659.25, 783.99, 1046.5].forEach((f, i) =>
       tone(c, { f, dur: 0.5, type: 'triangle', gain: 0.25, at: i * 0.14 }),
