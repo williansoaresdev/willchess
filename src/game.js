@@ -34,7 +34,7 @@ export function createGame(root, { userColor, level, engine, timeMs, onEnd, onLe
   const cache = new Map();
   let phase = 'busy';
   let destroyed = false;
-  let counts = { good: 0, bad: 0 };
+  let counts = { good: 0, great: 0, bad: 0 };
   let alertCtx = null;
   let failFen = null; // position where the user is failing
   let failCount = 0; // consecutive bad moves in that position
@@ -49,7 +49,7 @@ export function createGame(root, { userColor, level, engine, timeMs, onEnd, onLe
           <div class="clock-bar"><i data-clockbar></i></div>
         </div>
         <div class="top-right">
-          <div class="counters"><span class="chip good">✓ <b data-good>0</b></span><span class="chip bad">✗ <b data-bad>0</b></span></div>
+          <div class="counters"><span class="chip great">★ <b data-great>0</b></span><span class="chip good">✓ <b data-good>0</b></span><span class="chip bad">✗ <b data-bad>0</b></span></div>
           <button class="icon-btn mini" data-music title="${esc(t('music'))}" aria-label="${esc(t('music'))}"></button>
         </div>
       </div>
@@ -162,6 +162,7 @@ export function createGame(root, { userColor, level, engine, timeMs, onEnd, onLe
     statusEl.textContent = t(key);
   }
   function updateCounts() {
+    $('[data-great]').textContent = counts.great;
     $('[data-good]').textContent = counts.good;
     $('[data-bad]').textContent = counts.bad;
   }
@@ -225,9 +226,9 @@ export function createGame(root, { userColor, level, engine, timeMs, onEnd, onLe
     refresh([played.from, played.to]);
 
     if (chess.isGameOver()) {
-      counts.good++;
+      counts.great++;
       updateCounts();
-      addMove(userColor, true);
+      addMove(userColor, 'great');
       return finish();
     }
 
@@ -247,7 +248,8 @@ export function createGame(root, { userColor, level, engine, timeMs, onEnd, onLe
       }
       const loss = Math.max(0, best - clampCp(scoreToCp(playedScore)));
       const bad = loss > THRESHOLD;
-      bad ? counts.bad++ : counts.good++;
+      const great = !bad && pre.lines[0].pv[0] === uci;
+      counts[bad ? 'bad' : great ? 'great' : 'good']++;
       if (bad) {
         if (preFen === failFen) failCount++;
         else {
@@ -256,9 +258,9 @@ export function createGame(root, { userColor, level, engine, timeMs, onEnd, onLe
         }
       } else failFen = null, failCount = 0;
       updateCounts();
-      addMove(userColor, !bad);
+      addMove(userColor, bad ? 'bad' : great ? 'great' : 'good');
       if (!bad) {
-        if (pre.lines[0].pv[0] === uci) {
+        if (great) {
           play('excellent');
           flash(t('excellentMove'));
           starBurst(played.to);
@@ -489,6 +491,7 @@ export function createGame(root, { userColor, level, engine, timeMs, onEnd, onLe
       result,
       reason,
       good: counts.good,
+      great: counts.great,
       bad: counts.bad,
       plies: chess.history().length,
     };

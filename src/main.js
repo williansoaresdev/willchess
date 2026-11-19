@@ -287,8 +287,9 @@ function gameScreen(el, { level, color, timeMs }) {
 }
 
 function endScreen(el, { game }) {
-  const total = game.good + game.bad;
-  const acc = total ? Math.round((game.good / total) * 100) : 100;
+  const great = game.great || 0;
+  const total = game.good + great + game.bad;
+  const acc = total ? Math.round(((game.good + great) / total) * 100) : 100;
   const msg =
     game.reason === 'time' ? t('resTime') : game.result === 'win' ? t('resWin') : game.result === 'loss' ? t('resLoss') : { stalemate: t('drawStalemate'), repetition: t('drawRep'), material: t('drawMat'), fifty: t('drawFifty') }[game.reason] || t('resDraw');
   el.innerHTML = `
@@ -298,7 +299,8 @@ function endScreen(el, { game }) {
       <p class="result ${game.result}">${esc(msg)}</p>
       <div class="summary">
         <h4>${esc(t('summary'))}</h4>
-        <div class="stat-row"><div class="stat good"><b>${game.good}</b><span>${esc(t('good'))}</span></div>
+        <div class="stat-row"><div class="stat great"><b>${great}</b><span>${esc(t('great'))}</span></div>
+        <div class="stat good"><b>${game.good}</b><span>${esc(t('good'))}</span></div>
         <div class="stat bad"><b>${game.bad}</b><span>${esc(t('bad'))}</span></div>
         <div class="stat"><b>${acc}%</b><span>${esc(t('accuracy'))}</span></div></div>
       </div>
@@ -308,7 +310,7 @@ function endScreen(el, { game }) {
     </div>`;
   el.querySelector('[data-new]').onclick = () => go('levels');
   el.querySelector('[data-stats]').onclick = () => go('stats');
-  el.querySelector('[data-share]').onclick = () => shareApp(t('shareResult', { good: game.good, bad: game.bad, acc }));
+  el.querySelector('[data-share]').onclick = () => shareApp(t('shareResult', { good: game.good + great, bad: game.bad, acc }));
   setTimeout(() => play('finish'), 250);
   burst(el);
 }
@@ -332,17 +334,18 @@ async function stats(el) {
   el.innerHTML = `<div class="page"><h2>${esc(t('statsTitle'))}</h2><div data-body></div></div>`;
   const [st, games] = await Promise.all([getStats(), getGames()]);
   const body = el.querySelector('[data-body]');
-  const tot = (s) => s.good + s.bad;
-  const pct = (s) => (tot(s) ? Math.round((s.good / tot(s)) * 100) : 0);
-  const all = { good: st.white.good + st.black.good, bad: st.white.bad + st.black.bad };
+  const tot = (s) => s.good + s.great + s.bad;
+  const pct = (s) => (tot(s) ? Math.round(((s.good + s.great) / tot(s)) * 100) : 0);
+  const pc = (n, s) => (tot(s) ? (n / tot(s)) * 100 : 0);
+  const all = { good: st.white.good + st.black.good, great: st.white.great + st.black.great, bad: st.white.bad + st.black.bad };
   if (!tot(all) && !games.length) {
     body.innerHTML = `<p class="empty">${esc(t('noData'))}</p>`;
     return;
   }
   const bar = (label, s) => `
     <div class="bar-card"><div class="bar-head"><b>${esc(label)}</b><span>${tot(s)} · ${esc(t('accuracy'))} ${pct(s)}%</span></div>
-    <div class="bar"><i class="g" style="width:${tot(s) ? pct(s) : 0}%"></i><i class="b" style="width:${tot(s) ? 100 - pct(s) : 0}%"></i></div>
-    <div class="bar-legend"><span class="good">✓ ${esc(t('good'))}: <b>${s.good}</b></span><span class="bad">✗ ${esc(t('bad'))}: <b>${s.bad}</b></span></div></div>`;
+    <div class="bar"><i class="s" style="width:${pc(s.great, s)}%"></i><i class="g" style="width:${pc(s.good, s)}%"></i><i class="b" style="width:${pc(s.bad, s)}%"></i></div>
+    <div class="bar-legend"><span class="great">★ ${esc(t('great'))}: <b>${s.great}</b></span><span class="good">✓ ${esc(t('good'))}: <b>${s.good}</b></span><span class="bad">✗ ${esc(t('bad'))}: <b>${s.bad}</b></span></div></div>`;
   const w = games.filter((g) => g.result === 'win').length;
   const l = games.filter((g) => g.result === 'loss').length;
   const d = games.filter((g) => g.result === 'draw').length;
@@ -363,7 +366,7 @@ async function stats(el) {
             .slice(0, 10)
             .map(
               (g) => `<li><span class="r ${g.result}">${icon[g.result]}</span><span>${g.userColor === 'white' ? '♔' : '♚'} ${esc(t('levels')[g.level] ?? '')}</span>
-              <span class="mv">✓${g.good} ✗${g.bad}</span><time>${esc(fmt.format(g.date))}</time></li>`,
+              <span class="mv">★${g.great || 0} ✓${g.good} ✗${g.bad}</span><time>${esc(fmt.format(g.date))}</time></li>`,
             )
             .join('')}</ul>`
         : ''

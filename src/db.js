@@ -54,15 +54,18 @@ export async function setSetting(key, value) {
   } catch {}
 }
 
-const emptyStat = (color) => ({ color, good: 0, bad: 0 });
+const emptyStat = (color) => ({ color, good: 0, great: 0, bad: 0 });
+const bump = (s, kind) => {
+  s[kind] = (s[kind] || 0) + 1;
+};
 
-/** Record one evaluated move for the color the user was playing. */
-export async function addMove(color, good) {
+/** Record one evaluated move (kind: 'bad' | 'good' | 'great') for the color the user was playing. */
+export async function addMove(color, kind) {
   try {
     const db = await open();
     if (!db) {
       const s = mem.stats.get(color) || emptyStat(color);
-      good ? s.good++ : s.bad++;
+      bump(s, kind);
       mem.stats.set(color, s);
       return;
     }
@@ -72,7 +75,7 @@ export async function addMove(color, good) {
       const g = st.get(color);
       g.onsuccess = () => {
         const s = g.result || emptyStat(color);
-        good ? s.good++ : s.bad++;
+        bump(s, kind);
         st.put(s);
       };
       tx.oncomplete = resolve;
@@ -90,7 +93,7 @@ export async function getStats() {
       return out;
     }
     const rows = await run('stats', 'readonly', (s) => s.getAll());
-    for (const r of rows || []) out[r.color] = r;
+    for (const r of rows || []) out[r.color] = { ...emptyStat(r.color), ...r };
   } catch {}
   return out;
 }
